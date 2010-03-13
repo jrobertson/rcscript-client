@@ -53,7 +53,11 @@ class RScriptClient
       summary_node = XPath.match(@doc.root, 'summary/*')
       if summary_node then
         summary_node.each do |node|
-          method = "def %s(); \"%s\"; end" % [node.name, node.text.to_s]
+method =<<EOF
+def #{node.name}()
+  "#{(node.cdatas.length > 0 ? node.cdatas.join.strip : node.text.to_s).gsub(/"/,'\"')}"
+end
+EOF
           self.instance_eval(method)
         end
         records = XPath.match(@doc.root, 'records/*/text()')
