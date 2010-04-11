@@ -55,7 +55,7 @@ class RScriptClient
         summary_node.each do |node|
 method =<<EOF
 def #{node.name}()
-  "#{(node.cdatas.length > 0 ? node.cdatas.join.strip : node.text.to_s).gsub(/"/,'\"')}"
+  "#{(node.cdatas.length > 0 ? node.cdatas.join.strip : node.text.to_s).gsub(/"/,'\"').gsub(/#/,'\#')}"
 end
 EOF
           self.instance_eval(method)
