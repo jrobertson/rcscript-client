@@ -53,9 +53,16 @@ class RScriptClient
       summary_node = XPath.match(@doc.root, 'summary/*')
       if summary_node then
         summary_node.each do |node|
+    
+        if node.cdatas.length > 0 then
+          content = node.cdatas.length == 1 ? node.cdatas.join.strip : node.cdatas
+        else
+          content = node.text.to_s.gsub(/"/,'\"').gsub(/#/,'\#')
+        end
+        
 method =<<EOF
 def #{node.name}()
-  "#{(node.cdatas ? node.cdatas.join.strip : node.text.to_s).gsub(/"/,'\"')}"
+  #{content}
 end
 EOF
           self.instance_eval(method)
