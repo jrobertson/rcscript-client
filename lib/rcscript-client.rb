@@ -1,8 +1,12 @@
+#!/usr/bin/env ruby
+
+# file: rcscript-client.rb
+
 require 'open-uri'
 require 'cgi'
 require 'rexml/document'
 
-class RScriptClient
+class RCScriptClient
   include REXML
 
   attr_reader :doc, :result, :text   
@@ -10,9 +14,11 @@ class RScriptClient
   
   def initialize(opts={})        
     
-    o = {:hostname => 'rscript.heroku.com', :package => ''}.merge(opts)
+    o = {:hostname => 'rscript.heroku.com', :package => '', https: false}\
+        .merge(opts)
     @hostname = o[:hostname]
     @package = o[:package]
+    @protocol = o[:https] ? 'https' : 'http'
     
     if @package.length > 0 then
       jobs_to_methods(@package)    
@@ -32,10 +38,12 @@ class RScriptClient
   private
   
   def jobs_to_methods(package)
-    #url = "http://rorbuilder.info/r/heroku/%s.rsf" % package
-    url = "http://%s/view-source/%s" % [@hostname, package]
+    #url = "http://a0.jamesrobertson.me.uk/rorb/r/heroku/%s.rsf" % package
+    url = "%s://%s/source/%s" % [@protocol, @hostname, package]
     puts 'url : ' + url
-    doc = Document.new(open(url, 'UserAgent' => 'ClientRscript').read)
+    buffer = URI.open(url, 'UserAgent' => 'ClientRscript').read
+    puts 'buffer: ' + buffer.inspect
+    doc = Document.new(buffer)
     a = XPath.match(doc.root, 'job/attribute::id')
     a.each do |attr|
       method_name = attr.value.to_s.gsub('-','_')
@@ -55,10 +63,20 @@ class RScriptClient
         summary_node.each do |node|
     
         if node.cdatas.length > 0 then
-          content = node.cdatas.length == 1 ? node.cdatas.join.strip : node.cdatas
+          if node.cdatas.length == 1 then
+            content =  node.cdatas.join.strip
+          else
+            if node.elements["@value='methods'"] then
+            
+            else
+              content = node.cdatas.map {|x| x.to_s[/^\{.*\}$/] ? eval(x.to_s) : x.to_s}
+            end
+            
+          end
         else
           content = node.text.to_s.gsub(/"/,'\"').gsub(/#/,'\#')
         end
+
         
 method =<<EOF
 def #{node.name}()
@@ -86,7 +104,8 @@ EOF
     base_url = "http://#{@hostname}/do/#{@package}/"
     param_list = params.to_a.map{|param, value| "%s=%s" % [param, CGI.escape(value)]}.join('&')
     url = "%s%s?%s" % [base_url, method.gsub('_','-'), param_list]
-    response = open(url, 'UserAgent' => 'RScriptClient')    
+    puts 'url: ' + url.inspect
+    response = URI.open(url, 'UserAgent' => 'RScriptClient')    
     @result = response.read
     @return_type[response.content_type].call
     return self
